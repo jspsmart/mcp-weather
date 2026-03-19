@@ -1,8 +1,9 @@
-# test-mcp MCP Server
+# mcp-weather、mcp-flomo for MCP Server
 
 A Model Context Protocol server
 
-> **2025-02-22** · 今天完成了第一个 MCP 服务器的开发，将写笔记能力接入了 flomo。这是一次小小的尝试，也是一个好的开始。
+> **2025-02-22** · 今天完成了第一个 MCP 服务器的开发，将写笔记能力接入了 flomo。
+> **2025-03-09** · 本地ollama + ChatBox +mcp 实现了查询天气情况，并将结果成功返回ChatBox显示。
 
 This is a TypeScript-based MCP server that implements a simple notes system. It demonstrates core MCP concepts by providing:
 
@@ -70,4 +71,5 @@ npm run inspector
 ```
 
 The Inspector will provide a URL to access debugging tools in your browser.
-# mcp-weather
+
+
