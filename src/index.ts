@@ -13,9 +13,9 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
-  //ListResourcesRequestSchema,
+  ListResourcesRequestSchema,
   ListToolsRequestSchema,
-  //ReadResourceRequestSchema,
+  ReadResourceRequestSchema,
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
@@ -145,7 +145,12 @@ const server = new Server(
   },
   {
     capabilities: {
-      resources: {},
+      resources: {
+        listChanged: true,
+        templates: {
+          listChanged: true
+        }
+      },
       tools: {},
       prompts: {
         listChanged: true
@@ -188,6 +193,52 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
           required: ["city"]
         }
+      }
+    ]
+  };
+});
+
+/**
+ * Handler that lists available resources.
+ * Exposes notes as resources that can be read.
+ */
+server.setRequestHandler(ListResourcesRequestSchema, async () => {
+  console.error("*******1*********-listResources-");
+  return {
+    resources: Object.entries(notes).map(([id, note]) => ({
+      uri: `/notes/${id}`,
+      name: note.title,
+      description: note.content
+    }))
+  };
+});
+
+/**
+ * Handler that reads a specific resource by URI.
+ * Returns the content of a note.
+ */
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  console.error("*******2*********-readResource-");
+  const resourceUri = request.params.uri;
+  
+  if (!resourceUri || typeof resourceUri !== 'string') {
+    throw new Error(`Invalid resource URI: "${resourceUri}"`);
+  }
+  
+  // Extract resource ID from URI (e.g., /notes/1 -> 1)
+  const resourceId = resourceUri.replace(/^\/notes\//, '');
+  const note = notes[resourceId];
+  
+  if (!note) {
+    throw new Error(`Resource with URI "${resourceUri}" not found`);
+  }
+  
+  return {
+    contents: [
+      {
+        uri: resourceUri,
+        mimeType: "text/plain",
+        text: `${note.title}: ${note.content}`
       }
     ]
   };
