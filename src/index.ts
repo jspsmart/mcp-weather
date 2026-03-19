@@ -16,8 +16,8 @@ import {
   //ListResourcesRequestSchema,
   ListToolsRequestSchema,
   //ReadResourceRequestSchema,
-  //ListPromptsRequestSchema,
-  //GetPromptRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { FlomoClient, WeatherClient } from "./clientUtil.js";
@@ -36,6 +36,105 @@ const notes: { [id: string]: Note } = {
 };
 
 /**
+ * Collection of prompts that provide precise instructions for using the tools.
+ */
+interface MessageContent {
+  type: string;
+  text: string;
+}
+
+interface PromptMessage {
+  role: string;
+  content: MessageContent;
+}
+
+interface Prompt {
+  name: string;
+  description: string;
+  messages: PromptMessage[];
+}
+
+const prompts: { [name: string]: Prompt } = {
+  "tool_usage": {
+    name: "tool_usage",
+    description: "Provides precise instructions for using the available tools",
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text: `You are an assistant that helps users interact with a system that has two tools:
+
+1. write_note: Used to write notes to Flomo
+   - Input: { content: string }
+   - Example: { "content": "Today's meeting notes" }
+   - Usage: Use this tool when you need to record information or save notes.
+
+2. query_weather: Used to query weather information for specific cities
+   - Input: { city: string }
+   - Supported cities: 哈尔滨, 三亚, 北京, 上海, 广州, 深圳, 成都, 杭州, 重庆, 西安, 武汉
+   - Example: { "city": "北京" }
+   - Usage: Use this tool when users ask for weather information about supported cities.
+
+For each tool call, ensure you provide the exact parameters required in the correct format.`
+        }
+      }
+    ]
+  },
+  "weather_tool_guide": {
+    name: "weather_tool_guide",
+    description: "Detailed guide for using the weather query tool",
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text: `The query_weather tool allows you to get current weather information for specific Chinese cities.
+
+**Supported Cities:**
+- 哈尔滨 (Harbin)
+- 三亚 (Sanya)
+- 北京 (Beijing)
+- 上海 (Shanghai)
+- 广州 (Guangzhou)
+- 深圳 (Shenzhen)
+- 成都 (Chengdu)
+- 杭州 (Hangzhou)
+- 重庆 (Chongqing)
+- 西安 (Xi'an)
+- 武汉 (Wuhan)
+
+**Usage Example:**
+{"toolcall": {"thought": "User wants to know the weather in Beijing", "name": "query_weather", "params": {"city": "北京"}}}
+
+**Response Format:**
+The tool returns current temperature, wind speed, and timestamp for the requested city.`
+        }
+      }
+    ]
+  },
+  "note_tool_guide": {
+    name: "note_tool_guide",
+    description: "Detailed guide for using the note writing tool",
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text: `The write_note tool allows you to write notes to Flomo, a note-taking service.
+
+**Usage Example:**
+{"toolcall": {"thought": "User wants to save a meeting note", "name": "write_note", "params": {"content": "Meeting with team at 3 PM to discuss project progress"}}}
+
+**Response Format:**
+The tool returns a success message with the result from Flomo.`
+        }
+      }
+    ]
+  }
+};
+
+/**
  * Create an MCP server with capabilities for resources (to list/read notes),
  * tools (to create new notes), and prompts (to summarize notes).
  */
@@ -48,7 +147,9 @@ const server = new Server(
     capabilities: {
       resources: {},
       tools: {},
-      prompts: {},
+      prompts: {
+        listChanged: true
+      },
     },
   }
 );
@@ -89,6 +190,42 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       }
     ]
+  };
+});
+
+/**
+ * Handler that lists available prompts.
+ * Exposes prompts that provide precise instructions for using the tools.
+ */
+server.setRequestHandler(ListPromptsRequestSchema, async () => {
+  return {
+    prompts: Object.values(prompts).map(prompt => ({
+      name: prompt.name,
+      description: prompt.description
+    }))
+  };
+});
+
+/**
+ * Handler that retrieves a specific prompt by name.
+ */
+server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  const promptName = request.params.name;
+  
+  if (!promptName || typeof promptName !== 'string') {
+    throw new Error(`Invalid prompt name: "${promptName}"`);
+  }
+  
+  const prompt = prompts[promptName];
+  
+  if (!prompt) {
+    throw new Error(`Prompt with name "${promptName}" not found`);
+  }
+  
+  // Return correct structure according to MCP spec
+  return {
+    description: prompt.description,
+    messages: prompt.messages
   };
 });
 
